@@ -37,9 +37,10 @@ export function initMixin(Vue: Class<Component>) {
       // optimize internal component instantiation
       // since dynamic options merging is pretty slow, and none of the
       // internal component options needs special treatment.
-      // 如果是子组件：进行了一个性能优化
+      // 如果是子组件：进行了一个性能优化，减少原型链的查找，提高执行效率
       initInternalComponent(vm, options);
     } else {
+      // 跟组件走这里：选项合并，将全局配置选项合并到跟组件的局部配置上
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
         options || {},
@@ -77,6 +78,7 @@ export function initMixin(Vue: Class<Component>) {
   };
 }
 
+// 性能优化，打平配置对象上的属性，减少运行时原型链的查找，提高执行效率。
 export function initInternalComponent(
   vm: Component,
   options: InternalComponentOptions
@@ -94,6 +96,7 @@ export function initInternalComponent(
   opts._renderChildren = vnodeComponentOptions.children;
   opts._componentTag = vnodeComponentOptions.tag;
 
+  // 如果有 render 函数 将其赋值到 vm.$options
   if (options.render) {
     opts.render = options.render;
     opts.staticRenderFns = options.staticRenderFns;
