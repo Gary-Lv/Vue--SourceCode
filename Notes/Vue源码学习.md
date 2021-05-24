@@ -1,5 +1,9 @@
 ## Vue源码学习
 
+### Vue构造函数初始化的入口文件
+
+> Vue 初始化的入口文件位置：`src/core/instance/index.js`。
+
 ### 第一节：Vue初始化
 
 Vue初始化过程（new Vue({options})）这个过程都做了什么？
