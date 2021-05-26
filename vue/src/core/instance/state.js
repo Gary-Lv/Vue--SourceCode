@@ -201,6 +201,7 @@ function initComputed(vm: Component, computed: Object) {
   const isSSR = isServerRendering();
 
   // 遍历 computed 对象上的属性
+  // 判断 key 是不是一个函数 如果是函数直接赋值给 getter  如果不是 肯定是一个配置项 里面必须包含 get 这个属性  然后将 get 赋值给 getter
   for (const key in computed) {
     const userDef = computed[key];
     const getter = typeof userDef === "function" ? userDef : userDef.get;
