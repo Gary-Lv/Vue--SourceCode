@@ -61,6 +61,7 @@ export function initState(vm: Component) {
     observe((vm._data = {}), true /* asRootData */);
   }
   if (opts.computed) initComputed(vm, opts.computed);
+  // 核心：实例化一个 Watcher ，并返回一个 unwatch
   if (opts.watch && opts.watch !== nativeWatch) {
     initWatch(vm, opts.watch);
   }
@@ -131,7 +132,7 @@ function initProps(vm: Component, propsOptions: Object) {
  * 1、判重处理，data 中的属性 不能和 props 以及 methods 中的属性重复
  * 2、将 data 中的属性代理到 Vue 实例上，可以通过 this.dataKey 的方式访问
  * 3、将 data 中的属性响应式处理。
- * @param {*} vm 
+ * @param {*} vm
  */
 function initData(vm: Component) {
   let data = vm.$options.data;
@@ -194,6 +195,12 @@ export function getData(data: Function, vm: Component): any {
 
 const computedWatcherOptions = { lazy: true };
 
+/**
+ * computed 是通过 实例化 Watcher 实现的。对每一个 computedKey 都实例化一个 Watcher，默认都是懒执行的。
+ * 将 computedKey 代理到 Vue 实例上，支持通过 this.computedKey 的方式去访问
+ * @param {Vue 实例}} vm
+ * @param {配置} computed
+ */
 function initComputed(vm: Component, computed: Object) {
   // $flow-disable-line
   const watchers = (vm._computedWatchers = Object.create(null));
@@ -279,11 +286,14 @@ export function defineComputed(
 
 function createComputedGetter(key) {
   return function computedGetter() {
-    // 拿到 watcher 
+    // 拿到 watcher
     const watcher = this._computedWatchers && this._computedWatchers[key];
     if (watcher) {
       if (watcher.dirty) {
         // 执行 watcher.evaluate 方法。
+        // 做了两件事情：
+        //  1、执行watcher.evaluate 内部 相当于执行了 computed.key （函数） 将执行结果赋值给 watcher.value
+        //  2、将watcher.dirty 置为 false
         watcher.evaluate();
       }
       if (Dep.target) {
@@ -304,8 +314,8 @@ function createGetterInvoker(fn) {
  * methods 对象的处理 做了两件事：
  * 1、判重，methods 对象中的属性不能和 props 对象上的属性重名，如果重复，就以 props 上的属性为准，props 的优先级高于 methods。
  * 2、将 methods 对象上的方法 绑定到 Vue 实例上，可以通过 this.methodsKey 的方式访问。
- * @param {*} vm 
- * @param {*} methods 
+ * @param {*} vm
+ * @param {*} methods
  */
 function initMethods(vm: Component, methods: Object) {
   // 首先拿到实例上的 props 对象
@@ -338,9 +348,16 @@ function initMethods(vm: Component, methods: Object) {
   }
 }
 
+/**
+ *
+ * @param {Vue 实例} vm
+ * @param {配置项} watch
+ */
 function initWatch(vm: Component, watch: Object) {
+  // 循环处理 watch 的每一项
   for (const key in watch) {
     const handler = watch[key];
+    // watch 监听配置可能是一个数组  这里就循环处理数组
     if (Array.isArray(handler)) {
       for (let i = 0; i < handler.length; i++) {
         createWatcher(vm, key, handler[i]);
@@ -357,13 +374,16 @@ function createWatcher(
   handler: any,
   options?: Object
 ) {
+  // 判断 handler 是不是一个对象 如是对象 就去拿到对象里面的 handle 属性的值（也就是一个函数）
   if (isPlainObject(handler)) {
     options = handler;
     handler = handler.handler;
   }
+  // 如果 是一个字符串  那就去组件实例上 拿 this.methodsKey 对应的方法
   if (typeof handler === "string") {
     handler = vm[handler];
   }
+  // 执行 $watch 方法
   return vm.$watch(expOrFn, handler, options);
 }
 
@@ -403,12 +423,16 @@ export function stateMixin(Vue: Class<Component>) {
     options?: Object
   ): Function {
     const vm: Component = this;
+    // 处理 cb 回调函数 是对象的情况，保证后面处理中的 cb 是一个函数
     if (isPlainObject(cb)) {
       return createWatcher(vm, expOrFn, cb, options);
     }
     options = options || {};
+    // 这里标识 这是一个用户 watcher
     options.user = true;
+    // 实例化 Watcher
     const watcher = new Watcher(vm, expOrFn, cb, options);
+    // 判断用户设置 watch 监听时候 存在 immediate 配置项  则立即执行回调函数
     if (options.immediate) {
       const info = `callback for immediate watcher "${watcher.expression}"`;
       pushTarget();
